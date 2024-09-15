@@ -7,6 +7,13 @@ use std::mem::MaybeUninit;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::ffi::OsStringExt;
 use std::ptr;
+use uwp_apps::{get_uwp_icon, get_uwp_icon_base64};
+mod utils {
+    pub mod image_utils;
+    pub mod process_utils;
+}
+
+mod uwp_apps;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Graphics::Gdi::GetObjectW;
@@ -108,6 +115,7 @@ unsafe fn icon_to_image(icon: HICON) -> Result<RgbaImage, Box<dyn std::error::Er
     }))
 }
 
+
 pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error> {
     unsafe {
         let process_handle = OpenProcess(
@@ -118,6 +126,7 @@ pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error>
         let mut buffer = vec![0u16; 1024];
         let size = K32GetModuleFileNameExW(HANDLE(process_handle.0), None, &mut buffer);
         CloseHandle(process_handle)?;
+
 
         if size == 0 {
             return Err(windows::core::Error::from_win32());
@@ -136,10 +145,12 @@ pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error>
 }
 
 pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
-    if let Ok(path) = get_process_path(process_id) {
-        get_icon_by_path(&path)
+    let path = get_process_path(process_id).ok()?;
+
+    if path.contains("WindowsApps") {
+        get_uwp_icon(&path).ok()
     } else {
-        None
+        get_icon_by_path(&path)
     }
 }
 
@@ -158,6 +169,10 @@ pub fn get_icon_base64_by_process_id(process_id: u32) -> Option<String> {
 }
 
 pub fn get_icon_base64_by_path(path: &str) -> Option<String> {
+    if path.contains("WindowsApps") {
+        return get_uwp_icon_base64(path).ok();
+    }
+
     if let Some(icon_image) = get_icon_by_path(path) {
         let mut buffer = Vec::new();
         icon_image
