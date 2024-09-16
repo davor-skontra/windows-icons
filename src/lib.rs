@@ -23,7 +23,7 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{GetIconInfo, HICON},
 };
 
-unsafe fn get_hicon(file_path: &str) -> HICON {
+unsafe fn get_hicon(file_path: &str) -> Option<HICON> {
     let wide_path: Vec<u16> = OsStr::new(file_path).encode_wide().chain(Some(0)).collect();
     let mut shfileinfo: SHFILEINFOW = std::mem::zeroed();
 
@@ -36,10 +36,10 @@ unsafe fn get_hicon(file_path: &str) -> HICON {
     );
 
     if result == 0 {
-        panic!("Failed to get icon for file: {}", file_path);
+        None
+    } else {
+        Some(shfileinfo.hIcon)
     }
-
-    shfileinfo.hIcon
 }
 
 unsafe fn icon_to_image(icon: HICON) -> RgbaImage {
@@ -130,7 +130,7 @@ pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error>
         let path = OsString::from_wide(&buffer).into_string().map_err(|_| {
             windows::core::Error::new(
                 windows::core::HRESULT(-1),
-                "Invalid Unicode in path".to_string(),
+                "Invalid Unicode in path",
             )
         })?;
 
@@ -138,31 +138,39 @@ pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error>
     }
 }
 
-pub fn get_icon_by_process_id(process_id: u32) -> RgbaImage {
-    let path = get_process_path(process_id).unwrap();
-    get_icon_by_path(&path)
-}
-
-pub fn get_icon_by_path(path: &str) -> RgbaImage {
-    unsafe {
-        let icon = get_hicon(path);
-        icon_to_image(icon)
+pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
+    if let Ok(path) = get_process_path(process_id) {
+        get_icon_by_path(&path)
+    } else {
+        None
     }
 }
 
-pub fn get_icon_base64_by_process_id(process_id: u32) -> String {
-    let path = get_process_path(process_id).unwrap();
-    get_icon_base64_by_path(&path)
+pub fn get_icon_by_path(path: &str) -> Option<RgbaImage> {
+    unsafe {
+        get_hicon(path).map(|icon| icon_to_image(icon))
+    }
 }
 
-pub fn get_icon_base64_by_path(path: &str) -> String {
-    let icon_image = get_icon_by_path(path);
-    let mut buffer = Vec::new();
-    icon_image
-        .write_to(
-            &mut std::io::Cursor::new(&mut buffer),
-            image::ImageFormat::Png,
-        )
-        .unwrap();
-    general_purpose::STANDARD.encode(buffer)
+pub fn get_icon_base64_by_process_id(process_id: u32) -> Option<String> {
+    if let Ok(path) = get_process_path(process_id) {
+        get_icon_base64_by_path(&path)
+    } else {
+        None
+    }
+}
+
+pub fn get_icon_base64_by_path(path: &str) -> Option<String> {
+    if let Some(icon_image) = get_icon_by_path(path) {
+        let mut buffer = Vec::new();
+        icon_image
+            .write_to(
+                &mut std::io::Cursor::new(&mut buffer),
+                image::ImageFormat::Png,
+            )
+            .unwrap();
+        Some(general_purpose::STANDARD.encode(buffer))
+    } else {
+        None
+    }
 }
