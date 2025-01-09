@@ -17,7 +17,7 @@ pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error>
         )?;
         let mut buffer = vec![0u16; 1024];
         let size = K32GetModuleFileNameExW(HANDLE(process_handle.0), None, &mut buffer);
-        CloseHandle(process_handle).unwrap();
+        CloseHandle(process_handle)?;
 
         if size == 0 {
             return Err(windows::core::Error::from_win32());
@@ -27,10 +27,11 @@ pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error>
         let path = OsString::from_wide(&buffer).into_string().map_err(|_| {
             windows::core::Error::new(
                 windows::core::HRESULT(-1),
-                "Invalid Unicode in path".to_string(),
+                "Invalid Unicode in path",
             )
         })?;
 
         Ok(path)
     }
 }
+

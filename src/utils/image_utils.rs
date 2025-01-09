@@ -25,34 +25,54 @@ use windows::{
         },
     },
 };
+use crate::utils::process_utils::get_process_path;
+use crate::uwp_apps::{get_uwp_icon, get_uwp_icon_base64};
 
-pub unsafe fn icon_to_image(icon: HICON) -> RgbaImage {
-    let bitmap_size_i32 = i32::try_from(mem::size_of::<BITMAP>()).unwrap();
-    let biheader_size_u32 = u32::try_from(mem::size_of::<BITMAPINFOHEADER>()).unwrap();
+pub unsafe fn get_hicon(file_path: &str) -> Option<HICON> {
+    let wide_path: Vec<u16> = OsStr::new(file_path).encode_wide().chain(Some(0)).collect();
+    let mut shfileinfo: SHFILEINFOW = std::mem::zeroed();
+
+    let result = SHGetFileInfoW(
+        PCWSTR::from_raw(wide_path.as_ptr()),
+        FILE_FLAGS_AND_ATTRIBUTES(0),
+        Some(&mut shfileinfo as *mut SHFILEINFOW),
+        std::mem::size_of::<SHFILEINFOW>() as u32,
+        SHGFI_ICON,
+    );
+
+    if result == 0 {
+        None
+    } else {
+        Some(shfileinfo.hIcon)
+    }
+}
+
+pub unsafe fn icon_to_image(icon: HICON) -> Result<RgbaImage, Box<dyn std::error::Error>> {
+    let bitmap_size_i32 = std::mem::size_of::<BITMAP>() as i32;
+    let biheader_size_u32 = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
 
     let mut info = MaybeUninit::uninit();
-    GetIconInfo(icon, info.as_mut_ptr()).unwrap();
+    GetIconInfo(icon, info.as_mut_ptr())?;
     let info = info.assume_init();
-    DeleteObject(info.hbmMask).unwrap();
+    let _ = DeleteObject(info.hbmMask);
 
     let mut bitmap: MaybeUninit<BITMAP> = MaybeUninit::uninit();
-    let result = GetObjectW(
+    let _ = GetObjectW(
         HGDIOBJ(info.hbmColor.0),
         bitmap_size_i32,
         Some(bitmap.as_mut_ptr().cast()),
     );
-    assert!(result == bitmap_size_i32);
+
     let bitmap = bitmap.assume_init();
 
-    let width_u32 = u32::try_from(bitmap.bmWidth).unwrap();
-    let height_u32 = u32::try_from(bitmap.bmHeight).unwrap();
-    let width_usize = usize::try_from(bitmap.bmWidth).unwrap();
-    let height_usize = usize::try_from(bitmap.bmHeight).unwrap();
-    let buf_size = width_usize.checked_mul(height_usize).unwrap();
+    let width_u32 = bitmap.bmWidth as u32;
+    let height_u32 = bitmap.bmHeight as u32;
+    let width_usize = bitmap.bmWidth as usize;
+    let height_usize = bitmap.bmHeight as usize;
+    let buf_size = width_usize.checked_mul(height_usize).unwrap_or_default();
     let mut buf: Vec<u32> = Vec::with_capacity(buf_size);
 
     let dc = GetDC(HWND(ptr::null_mut()));
-    assert!(dc != HDC(ptr::null_mut()));
 
     let mut bitmap_info = BITMAPINFO {
         bmiHeader: BITMAPINFOHEADER {
@@ -70,7 +90,7 @@ pub unsafe fn icon_to_image(icon: HICON) -> RgbaImage {
         },
         bmiColors: [Default::default()],
     };
-    let result = GetDIBits(
+    let _ = GetDIBits(
         dc,
         info.hbmColor,
         0,
@@ -79,40 +99,22 @@ pub unsafe fn icon_to_image(icon: HICON) -> RgbaImage {
         &mut bitmap_info,
         DIB_RGB_COLORS,
     );
-    assert!(result == bitmap.bmHeight);
     buf.set_len(buf.capacity());
 
-    let result = ReleaseDC(HWND(ptr::null_mut()), dc);
-    assert!(result == 1);
-    DeleteObject(info.hbmColor).unwrap();
+    let _ = ReleaseDC(HWND(ptr::null_mut()), dc);
+    let _ = DeleteObject(info.hbmColor);
 
-    RgbaImage::from_fn(width_u32, height_u32, |x, y| {
-        let x_usize = usize::try_from(x).unwrap();
-        let y_usize = usize::try_from(y).unwrap();
+    Ok(RgbaImage::from_fn(width_u32, height_u32, |x, y| {
+        let x_usize = x as usize;
+        let y_usize = y as usize;
         let idx = y_usize * width_usize + x_usize;
         let [b, g, r, a] = buf[idx].to_le_bytes();
         [r, g, b, a].into()
-    })
+    }))
 }
 
-pub unsafe fn get_hicon(file_path: &str) -> HICON {
-    let wide_path: Vec<u16> = OsStr::new(file_path).encode_wide().chain(Some(0)).collect();
-    let mut shfileinfo: SHFILEINFOW = std::mem::zeroed();
 
-    let result = SHGetFileInfoW(
-        PCWSTR::from_raw(wide_path.as_ptr()),
-        FILE_FLAGS_AND_ATTRIBUTES(0),
-        Some(&mut shfileinfo as *mut SHFILEINFOW),
-        std::mem::size_of::<SHFILEINFOW>() as u32,
-        SHGFI_ICON,
-    );
 
-    if result == 0 {
-        panic!("Failed to get icon for file: {}", file_path);
-    }
-
-    shfileinfo.hIcon
-}
 
 pub fn read_image_to_base64(file_path: &str) -> Result<String, Box<dyn Error>> {
     let mut file = File::open(file_path)?;
