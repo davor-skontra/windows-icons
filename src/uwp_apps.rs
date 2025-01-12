@@ -6,7 +6,6 @@ use crate::utils::image_utils::{get_icon_from_base64, read_image_to_base64};
 
 pub fn get_uwp_icon(process_path: &str) -> Result<RgbaImage, Box<dyn Error>> {
     let icon_path = get_icon_file_path(process_path)?;
-    println!("Icon path: {}", icon_path);
     let base64 = read_image_to_base64(&icon_path)?;
     let icon = get_icon_from_base64(&base64)?;
     Ok(icon)
