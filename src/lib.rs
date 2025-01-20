@@ -18,11 +18,7 @@ pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
     let path = get_process_path(process_id).ok()?;
 
     if path.contains("WindowsApps") {
-        let out = get_uwp_icon(&path);
-        match out {
-            Ok(o) => Some(o),
-            Err(e) => {panic!("{e}")}
-        }
+        get_uwp_icon(&path).ok()
     } else {
         get_icon_by_path(&path)
     }
