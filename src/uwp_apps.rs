@@ -63,7 +63,7 @@ fn get_scaled_icon_path(icon_path: &str) -> Option<String> {
     let matching_files: Vec<PathBuf> = folder_path.read_dir().ok()?
         .filter_map(|de| de.ok())
         .map(|de| de.path())
-        .filter(|de| de.is_file())
+        .filter(|p| p.is_file())
         .filter(|p| p.file_stem().unwrap().to_str().unwrap().contains(file_stem))
         .collect();
 
