@@ -13,12 +13,33 @@ mod utils {
 }
 
 mod uwp_apps;
+pub struct IconMatcher {
+    pub display_scale: i16,
+}
+
+impl Default for IconMatcher {
+    fn default() -> Self {
+        IconMatcher {
+            display_scale: 100
+        }
+    }
+}
 
 pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
     let path = get_process_path(process_id).ok()?;
+    let icon_matcher = &IconMatcher::default();
+    if path.contains("WindowsApps") {
+        get_uwp_icon(&path, icon_matcher).ok()
+    } else {
+        get_icon_by_path(&path)
+    }
+}
+
+pub fn get_icon_by_process_id_matching(process_id: u32, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
+    let path = get_process_path(process_id).ok()?;
 
     if path.contains("WindowsApps") {
-        get_uwp_icon(&path).ok()
+        get_uwp_icon(&path, icon_matcher).ok()
     } else {
         get_icon_by_path(&path)
     }
@@ -31,16 +52,30 @@ pub fn get_icon_by_path(path: &str) -> Option<RgbaImage> {
 }
 
 pub fn get_icon_base64_by_process_id(process_id: u32) -> Option<String> {
+    let icon_matcher = &IconMatcher::default();
     if let Ok(path) = get_process_path(process_id) {
-        get_icon_base64_by_path(&path)
+        get_icon_base64_by_path_matching(&path, icon_matcher)
     } else {
         None
     }
 }
 
-pub fn get_icon_base64_by_path(path: &str) -> Option<String> {
+pub fn get_icon_base64_by_process_id_matching(process_id: u32, icon_matcher: &IconMatcher) -> Option<String> {
+    if let Ok(path) = get_process_path(process_id) {
+        get_icon_base64_by_path_matching(&path, icon_matcher)
+    } else {
+        None
+    }
+}
+
+pub fn get_icon_base64_by_path(path: &str) -> Option<String>{
+    let icon_matcher = &IconMatcher::default();
+    get_icon_base64_by_path_matching(path, icon_matcher)
+}
+
+pub fn get_icon_base64_by_path_matching(path: &str, icon_matcher: &IconMatcher) -> Option<String> {
     if path.contains("WindowsApps") {
-        return get_uwp_icon_base64(path).ok();
+        return get_uwp_icon_base64(path, icon_matcher).ok();
     }
 
     if let Some(icon_image) = get_icon_by_path(path) {
