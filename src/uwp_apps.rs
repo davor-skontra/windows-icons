@@ -1,9 +1,11 @@
 use std::{error::Error, fs, path::Path};
 use std::collections::HashSet;
+use std::io::ErrorKind;
 use std::ops::Index;
 use std::path::PathBuf;
 use image::RgbaImage;
 use regex::Regex;
+use roxmltree::Node;
 use crate::IconMatcher;
 use crate::utils::image_utils::{get_icon_from_base64, read_image_to_base64};
 
@@ -21,39 +23,48 @@ pub fn get_uwp_icon_base64(process_path: &str, icon_matcher: &IconMatcher) -> Re
 }
 
 fn get_icon_file_path(app_path: &str, icon_matcher: &IconMatcher) -> Result<String, Box<dyn Error>> {
+    println!("App path: {app_path}");
     let package_folder = Path::new(app_path).parent().unwrap();
 
     let desktop_icon_path = package_folder.join("assets").join("DesktopShortcut.ico");
+
     if desktop_icon_path.exists() {
-        return Ok(desktop_icon_path.to_str().unwrap().to_string());
+        Ok(desktop_icon_path.to_str().unwrap().to_string())
     } else {
         let manifest_path = package_folder.join("AppxManifest.xml");
         let manifest_content = fs::read_to_string(&manifest_path)?;
-        let icon_path = extract_icon_path(&manifest_content)?;
+        let icon_path = extract_icon_path(&manifest_content);
+        if icon_path.is_none() {
+            return Err(Box::new(std::io::Error::new(
+                ErrorKind::NotFound,
+                "Icon path not found in manifest"
+            )));
+        };
+        let icon_path = icon_path.unwrap();
         let icon_full_path = package_folder.join(icon_path).to_str().unwrap().to_string();
         let icon_scale_path = match_icon_path(&icon_full_path, icon_matcher).unwrap_or(icon_full_path.to_string());
-        return Ok(icon_scale_path);
+
+        Ok(icon_scale_path)
     }
 }
 
-fn extract_icon_path(manifest_content: &str) -> Result<String, Box<dyn Error>> {
-    // Look for the <Logo>...</Logo> tag in the manifest
-    let tag = "Logo";
-    let start_tag = &format!("<{tag}>");
-    let end_tag = &format!("</{tag}>");
+fn extract_icon_path(manifest_content: &str) -> Option<String> {
+    let doc = roxmltree::Document::parse(manifest_content).ok()?;
 
-    if let Some(start) = manifest_content.find(start_tag) {
-        if let Some(end) = manifest_content.find(end_tag) {
-            let start_pos = start + start_tag.len();
-            let icon_path = &manifest_content[start_pos..end];
-            return Ok(icon_path.trim().to_string());
-        }
-    }
+    let icon_path = doc
+        .descendants()
+        .find(|n| n.has_tag_name("Applications"))?
+        .descendants()
+        .find(|n|
+            n.has_tag_name("Application") &&
+                n.attributes().find(|a| a.name() == "Id" && a.value() == "App" ).is_some())?
+        .descendants()
+        .find(|n| n.has_tag_name("VisualElements"))?
+        .attributes()
+        .find(|a| a.name() == "Square44x44Logo")?
+        .value();
 
-    Err(Box::new(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        "Icon path not found in manifest.",
-    )))
+    Some(icon_path.to_string())
 }
 
 fn match_icon_path(icon_path: &str, icon_matcher: &IconMatcher) -> Option<String> {

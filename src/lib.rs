@@ -25,23 +25,35 @@ impl Default for IconMatcher {
     }
 }
 
-pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
-    let path = get_process_path(process_id).ok()?;
-    let icon_matcher = &IconMatcher::default();
-    if path.contains("WindowsApps") {
-        get_uwp_icon(&path, icon_matcher).ok()
-    } else {
-        get_icon_by_path(&path)
+enum AppType {
+    Universal,
+    Desktop,
+    Other
+}
+
+fn get_app_type(path: &str) -> AppType {
+    if path.ends_with("ApplicationFrameworkHost.exe"){
+        return AppType::Universal
     }
+
+    if path.contains("WindowsApps") {
+        return AppType::Desktop
+    }
+
+    AppType::Other
+}
+
+pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
+    let icon_matcher = &IconMatcher::default();
+    get_icon_by_process_id_matching(process_id, icon_matcher)
 }
 
 pub fn get_icon_by_process_id_matching(process_id: u32, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
-    let path = get_process_path(process_id).ok()?;
-
-    if path.contains("WindowsApps") {
-        get_uwp_icon(&path, icon_matcher).ok()
-    } else {
-        get_icon_by_path(&path)
+    let path = &get_process_path(process_id).ok()?;
+    match get_app_type(path) {
+        AppType::Universal => {None}
+        AppType::Desktop => { get_uwp_icon(path, icon_matcher).ok() }
+        AppType::Other => {get_icon_by_path(path)}
     }
 }
 
@@ -74,20 +86,22 @@ pub fn get_icon_base64_by_path(path: &str) -> Option<String>{
 }
 
 pub fn get_icon_base64_by_path_matching(path: &str, icon_matcher: &IconMatcher) -> Option<String> {
-    if path.contains("WindowsApps") {
-        return get_uwp_icon_base64(path, icon_matcher).ok();
-    }
-
-    if let Some(icon_image) = get_icon_by_path(path) {
-        let mut buffer = Vec::new();
-        icon_image
-            .write_to(
-                &mut std::io::Cursor::new(&mut buffer),
-                image::ImageFormat::Png,
-            ).ok();
-        Some(general_purpose::STANDARD.encode(buffer))
-    } else {
-        None
+    match get_app_type(path) {
+        AppType::Universal => {None}
+        AppType::Desktop => {get_uwp_icon_base64(path, icon_matcher).ok()}
+        AppType::Other => {
+            if let Some(icon_image) = get_icon_by_path(path) {
+                let mut buffer = Vec::new();
+                icon_image
+                    .write_to(
+                        &mut std::io::Cursor::new(&mut buffer),
+                        image::ImageFormat::Png,
+                    ).ok();
+                Some(general_purpose::STANDARD.encode(buffer))
+            } else {
+                None
+            }
+        }
     }
 }
 
