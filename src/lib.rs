@@ -52,7 +52,7 @@ pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
 }
 
 pub fn get_icon_by_process_id_matching(process_id: u32, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
-    let path = &get_process_path(process_id)?;
+    let path = &get_process_path(process_id).ok()?;
     match get_app_type(path) {
         AppType::Universal => {get_afh_icon(process_id, path, icon_matcher)}
         AppType::Desktop => { get_uwp_icon(path, icon_matcher).ok() }
@@ -65,7 +65,7 @@ fn get_afh_icon(process_id: u32, path: &str, icon_matcher: &IconMatcher) -> Opti
     let wait_millis = 10;
     let mut total_wait_millis = 10000;
     let wait_time = time::Duration::from_millis(wait_millis);
-    while get_process_path(process_id)?.ends_with("ApplicationFrameHost.exe") {
+    while get_process_path(process_id).ok()?.ends_with("ApplicationFrameHost.exe") {
         if total_wait_millis <= 0 {
             break;
         }
@@ -73,7 +73,7 @@ fn get_afh_icon(process_id: u32, path: &str, icon_matcher: &IconMatcher) -> Opti
         total_wait_millis -= wait_millis;
     }
 
-    let path = get_process_path(process_id)?;
+    let path = get_process_path(process_id).ok()?;
     get_uwp_icon(&path, icon_matcher).ok()
 }
 
@@ -85,13 +85,19 @@ pub fn get_icon_by_path(path: &str) -> Option<RgbaImage> {
 
 pub fn get_icon_base64_by_process_id(process_id: u32) -> Option<String> {
     let icon_matcher = &IconMatcher::default();
-    let path = get_process_path(process_id)?;
-    get_icon_base64_by_path_matching(&path, icon_matcher)
+    if let Ok(path) = get_process_path(process_id) {
+        get_icon_base64_by_path_matching(&path, icon_matcher)
+    } else {
+        None
+    }
 }
 
 pub fn get_icon_base64_by_process_id_matching(process_id: u32, icon_matcher: &IconMatcher) -> Option<String> {
-    let path = get_process_path(process_id)?;
-    get_icon_base64_by_path_matching(&path, icon_matcher)
+    if let Ok(path) = get_process_path(process_id) {
+        get_icon_base64_by_path_matching(&path, icon_matcher)
+    } else {
+        None
+    }
 }
 
 pub fn get_icon_base64_by_path(path: &str) -> Option<String>{
