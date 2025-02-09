@@ -4,9 +4,8 @@ use std::os::windows::ffi::OsStringExt;
 use std::{thread, time};
 use base64::engine::general_purpose;
 use image::RgbaImage;
-use sysinfo::Pid;
 use crate::utils::image_utils::{get_hicon, icon_to_image};
-use crate::utils::process_utils::{get_process_name, get_process_path};
+use crate::utils::process_utils::get_process_path;
 use crate::uwp_apps::{get_uwp_icon, get_uwp_icon_base64};
 
 mod utils {
@@ -53,7 +52,6 @@ pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
 }
 
 pub fn get_icon_by_process_id_matching(process_id: u32, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
-    println!("get process id?");
     let path = &get_process_path(process_id)?;
     match get_app_type(path) {
         AppType::Universal => {get_afh_icon(process_id, path, icon_matcher)}
@@ -65,11 +63,9 @@ pub fn get_icon_by_process_id_matching(process_id: u32, icon_matcher: &IconMatch
 fn get_afh_icon(process_id: u32, path: &str, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
     println!("getting afh icon for {process_id}, {path}");
     let wait_millis = 10;
-    let mut total_wait_millis = 100;
+    let mut total_wait_millis = 10000;
     let wait_time = time::Duration::from_millis(wait_millis);
-    let name = get_process_name(process_id);
-    while (get_process_name(process_id)?) == "ApplicationFrameHost.exe" {
-        println!("App name was framework host");
+    while get_process_path(process_id)?.ends_with("ApplicationFrameHost.exe") {
         if total_wait_millis <= 0 {
             break;
         }
