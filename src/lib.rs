@@ -5,7 +5,7 @@ use std::{thread, time};
 use base64::engine::general_purpose;
 use image::RgbaImage;
 use crate::utils::image_utils::{get_hicon, icon_to_image};
-use crate::utils::process_utils::get_process_path;
+use crate::utils::process_utils::{get_process_id_by_hwnd, get_process_path};
 use crate::uwp_apps::{get_uwp_icon, get_uwp_icon_base64};
 
 mod utils {
@@ -46,6 +46,23 @@ fn get_app_type(path: &str) -> AppType {
     AppType::Other
 }
 
+pub fn get_icon_by_hwnd(hwnd: isize) -> Option<RgbaImage> {
+    let icon_matcher = &IconMatcher::default();
+    get_icon_by_hwnd_matching(hwnd, icon_matcher)
+}
+
+pub fn get_icon_by_hwnd_matching(hwnd: isize, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
+    let pid = get_process_id_by_hwnd(hwnd)?;
+    let icon = get_icon_by_process_id_matching(pid, icon_matcher);
+    icon
+}
+
+pub fn get_icon_base64_by_hwnd_matching(hwnd: isize, icon_matcher: &IconMatcher) -> Option<String> {
+    let pid = get_process_id_by_hwnd(hwnd)?;
+    let icon = get_icon_base64_by_process_id_matching(pid, icon_matcher);
+    icon
+}
+
 pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
     let icon_matcher = &IconMatcher::default();
     get_icon_by_process_id_matching(process_id, icon_matcher)
@@ -54,27 +71,10 @@ pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
 pub fn get_icon_by_process_id_matching(process_id: u32, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
     let path = &get_process_path(process_id)?;
     match get_app_type(path) {
-        AppType::Universal => {get_afh_icon(process_id, path, icon_matcher)}
+        AppType::Universal => { get_uwp_icon(path, icon_matcher).ok() }
         AppType::Desktop => { get_uwp_icon(path, icon_matcher).ok() }
         AppType::Other => {get_icon_by_path(path)}
     }
-}
-
-fn get_afh_icon(process_id: u32, path: &str, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
-    println!("getting afh icon for {process_id}, {path}");
-    let wait_millis = 10;
-    let mut total_wait_millis = 10000;
-    let wait_time = time::Duration::from_millis(wait_millis);
-    while get_process_path(process_id)?.ends_with("ApplicationFrameHost.exe") {
-        if total_wait_millis <= 0 {
-            break;
-        }
-        thread::sleep(wait_time);
-        total_wait_millis -= wait_millis;
-    }
-
-    let path = get_process_path(process_id)?;
-    get_uwp_icon(&path, icon_matcher).ok()
 }
 
 pub fn get_icon_by_path(path: &str) -> Option<RgbaImage> {
