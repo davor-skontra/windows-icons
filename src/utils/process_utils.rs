@@ -40,9 +40,8 @@ pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error>
         if (&path).ends_with("ApplicationFrameHost.exe") {
             let mut system = sysinfo::System::new();
             system.refresh_all();
-            let parent = system.process(Pid::from_u32(process_id)).unwrap().parent().unwrap().as_u32();
             println!("Process path had application framehost in it.");
-            let windows = get_hwnds_by_process_id(parent);
+            let windows = get_hwnds_by_process_id(process_id);
             let length = windows.len();
             println!("Found windows nr {length}");
             for HWND(window ) in windows {
@@ -55,36 +54,43 @@ pub fn get_process_path(process_id: u32) -> Result<String, windows::core::Error>
     }
 }
 
+struct WindowData {
+    pid: u32,
+    hwnd: HWND
+}
+
 fn get_hwnds_by_process_id(process_id: u32) -> Vec<HWND>{
     println!("I should be loooking for pid {process_id}");
-    let mut hwnd_list: Vec<HWND> = Vec::new();
+    let mut window_data_list: Vec<WindowData> = Vec::new();
 
     // Pass the mutable reference to the list as LPARAM to store results
     unsafe {
-        let result = EnumWindows(Some(enum_windows_callback), LPARAM(&mut hwnd_list as *mut Vec<HWND> as isize));
+        let result = EnumWindows(Some(enum_windows_callback), LPARAM(&mut window_data_list as *mut Vec<WindowData> as isize));
     }
 
-    hwnd_list
+    let hwnds = window_data_list
+        .iter()
+        .filter(|d| d.pid == process_id)
+        .map(|d| d.hwnd)
+        .collect();
+
+    hwnds
 }
 
 unsafe extern "system" fn enum_windows_callback(hwnd: HWND, l_param: LPARAM) -> BOOL {
     let mut pid = 0;
 
-    GetWindowThreadProcessId(hwnd, Some(&mut pid));
-    let windows = &mut *(l_param.0 as *mut Vec<HWND>);
-    windows.push(hwnd);
-    println!("found pid {pid}");
-    let l = l_param.0 as isize;
-    println!("l param was {l}");
-    let equal = pid == l as u32;
+    GetWindowThreadProcessId(hwnd, Option::from(std::ptr::addr_of_mut!(pid)));
 
-    println!("this was a match: {equal}");
-    if equal {
-        panic!("NICE!")
-    }
-    BOOL::from(equal)
+    let window_data_list = &mut *(l_param.0 as *mut Vec<WindowData>);
 
+    let data = WindowData {
+        pid, hwnd
+    };
 
+    window_data_list.push(data);
+
+    BOOL::from(true)
 }
 
 
