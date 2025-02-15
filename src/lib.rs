@@ -62,7 +62,7 @@ pub fn get_icon_by_process_id_matching(process_id: u32, icon_matcher: &IconMatch
 
 fn get_afh_icon(process_id: u32, path: &str, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
     println!("getting afh icon for {process_id}, {path}");
-    let wait_millis = 10;
+    let wait_millis = 1000;
     let mut total_wait_millis = 10000;
     let wait_time = time::Duration::from_millis(wait_millis);
     while get_process_path(process_id).ok()?.ends_with("ApplicationFrameHost.exe") {
