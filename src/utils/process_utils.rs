@@ -27,10 +27,6 @@ pub fn get_process_path(process_id: u32) -> Option<String> {
 }
 
 pub fn get_process_id_by_hwnd(hwnd: isize) -> Option<u32> {
-    get_process_id_by_hwnd_recursive(hwnd, 0)
-}
-
-fn get_process_id_by_hwnd_recursive(hwnd: isize, pass: u8) -> Option<u32> {
     let mut pid_nr = 0;
     let hwnd = HWND(as_ptr!(hwnd));
     unsafe {
@@ -39,35 +35,43 @@ fn get_process_id_by_hwnd_recursive(hwnd: isize, pass: u8) -> Option<u32> {
 
     let mut system = sysinfo::System::new();
     system.refresh_all();
-    let pid = Pid::from_u32(pid_nr);
+    let mut pid = Pid::from_u32(pid_nr);
     let process = system.process(pid)?;
     let process_name = process.name().to_str().unwrap();
-    if process.name() == "ApplicationFrameHost.exe" && pass < 1 {
+    if process.name() == "ApplicationFrameHost.exe" {
+
         let lookup = RealProcessLookup {
             afh_pid: pid_nr,
             hwnd,
             real_pid: None
         };
-        return get_real_process(lookup);
+
+        let mut real_pid = get_real_process(&lookup);
+
+        if !real_pid.is_some() {
+            let sleep_time = time::Duration::from_millis(500);
+            thread::sleep(sleep_time);
+            real_pid = get_real_process(&lookup)
+        };
+
+        pid = Pid::from_u32(real_pid?)
     }
 
     Some(pid.as_u32())
 }
 
+#[derive(Clone)]
 struct RealProcessLookup {
     afh_pid: u32,
     hwnd: HWND,
     real_pid: Option<u32>
 }
 
-fn get_real_process(lookup: RealProcessLookup) -> Option<u32> {
-    let mut lookup = lookup;
-    let sleep_time = time::Duration::from_millis(1000);
-    thread::sleep(sleep_time);
-    unsafe{
+fn get_real_process(lookup: &RealProcessLookup) -> Option<u32> {
+    let mut lookup = lookup.clone();
+    unsafe {
         let _ = EnumChildWindows(lookup.hwnd, Some(enum_child_windows_callback), as_lparam!(lookup, RealProcessLookup));
     }
-
     lookup.real_pid
 }
 
