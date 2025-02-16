@@ -1,11 +1,18 @@
 use std::{thread, time};
+use std::ptr::addr_of_mut;
 use sysinfo::Pid;
-use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
+use windows::Win32::UI::WindowsAndMessaging::{EnumChildWindows, GetWindowThreadProcessId};
 
 macro_rules! as_ptr {
     ($value:expr) => {
         $value as *mut core::ffi::c_void
+    };
+}
+
+macro_rules! as_lparam {
+    ($value:expr, $type:ty) => {
+        LPARAM(&mut $value as *mut $type as isize)
     };
 }
 
@@ -24,22 +31,60 @@ pub fn get_process_id_by_hwnd(hwnd: isize) -> Option<u32> {
 }
 
 fn get_process_id_by_hwnd_recursive(hwnd: isize, pass: u8) -> Option<u32> {
-    let mut pid  = 0;
-
+    let mut pid_nr = 0;
+    let hwnd = HWND(as_ptr!(hwnd));
     unsafe {
-        GetWindowThreadProcessId(HWND(as_ptr!(hwnd)), Option::from(&raw mut pid));
+        GetWindowThreadProcessId(hwnd, Option::from(&raw mut pid_nr));
     }
 
     let mut system = sysinfo::System::new();
     system.refresh_all();
-    let pid = Pid::from_u32(pid);
+    let pid = Pid::from_u32(pid_nr);
     let process = system.process(pid)?;
-    if process.name() == "ApplicationFrameHost" && pass < 1 {
-        let sleep_time = time::Duration::from_millis(1000);
-        thread::sleep(sleep_time);
-        return get_process_id_by_hwnd_recursive(hwnd, pass + 1)
+    let process_name = process.name().to_str().unwrap();
+    if process.name() == "ApplicationFrameHost.exe" && pass < 1 {
+        let lookup = RealProcessLookup {
+            afh_pid: pid_nr,
+            hwnd,
+            real_pid: None
+        };
+        return get_real_process(lookup);
     }
 
     Some(pid.as_u32())
 }
+
+struct RealProcessLookup {
+    afh_pid: u32,
+    hwnd: HWND,
+    real_pid: Option<u32>
+}
+
+fn get_real_process(lookup: RealProcessLookup) -> Option<u32> {
+    let mut lookup = lookup;
+    let sleep_time = time::Duration::from_millis(1000);
+    thread::sleep(sleep_time);
+    unsafe{
+        let _ = EnumChildWindows(lookup.hwnd, Some(enum_child_windows_callback), as_lparam!(lookup, RealProcessLookup));
+    }
+
+    lookup.real_pid
+}
+
+extern "system" fn  enum_child_windows_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    unsafe {
+        let real_lookup = &mut *(lparam.0 as *mut RealProcessLookup);
+        let mut temp_pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, Option::from(addr_of_mut!(temp_pid)));
+
+        if real_lookup.afh_pid != temp_pid {
+            real_lookup.real_pid = Some(temp_pid);
+
+            return  BOOL::from(false)
+        }
+
+        BOOL::from(true)
+    }
+}
+
 
