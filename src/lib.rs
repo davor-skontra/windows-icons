@@ -27,20 +27,13 @@ impl Default for IconMatcher {
 }
 
 enum AppType {
-    Universal,
-    Desktop,
+    UWP,
     Other
 }
 
 fn get_app_type(path: &str) -> AppType {
-    println!("Get app type by path for {path}");
-
-    if path.ends_with("ApplicationFrameHost.exe"){
-        return AppType::Universal
-    }
-
     if path.contains("WindowsApps") {
-        return AppType::Desktop
+        return AppType::UWP
     }
 
     AppType::Other
@@ -71,8 +64,7 @@ pub fn get_icon_by_process_id(process_id: u32) -> Option<RgbaImage> {
 pub fn get_icon_by_process_id_matching(process_id: u32, icon_matcher: &IconMatcher) -> Option<RgbaImage> {
     let path = &get_process_path(process_id)?;
     match get_app_type(path) {
-        AppType::Universal => { get_uwp_icon(path, icon_matcher).ok() }
-        AppType::Desktop => { get_uwp_icon(path, icon_matcher).ok() }
+        AppType::UWP => { get_uwp_icon(path, icon_matcher).ok() }
         AppType::Other => {get_icon_by_path(path)}
     }
 }
@@ -101,8 +93,7 @@ pub fn get_icon_base64_by_path(path: &str) -> Option<String>{
 
 pub fn get_icon_base64_by_path_matching(path: &str, icon_matcher: &IconMatcher) -> Option<String> {
     match get_app_type(path) {
-        AppType::Universal => {None}
-        AppType::Desktop => {get_uwp_icon_base64(path, icon_matcher).ok()}
+        AppType::UWP => {get_uwp_icon_base64(path, icon_matcher).ok()}
         AppType::Other => {
             if let Some(icon_image) = get_icon_by_path(path) {
                 let mut buffer = Vec::new();
