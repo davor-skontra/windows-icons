@@ -1,32 +1,32 @@
-use std::{
-    error::Error,
-    ffi::OsStr,
-    fs::File,
-    io::Read,
-    mem::{self, MaybeUninit},
-    os::windows::ffi::OsStrExt,
-    ptr,
-};
-
-use base64::{engine::general_purpose, Engine};
+use std::mem::MaybeUninit;
+use std::io::Read;
+use std::fs::File;
+use std::ffi::OsStr;
+use std::error::Error;
+use std::os::windows::ffi::OsStrExt;
+use std::ptr;
+use base64::engine::general_purpose;
+use base64::Engine;
 use image::RgbaImage;
-use windows::{
-    core::PCWSTR,
-    Win32::{
-        Foundation::HWND,
-        Graphics::Gdi::{
-            DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO,
-            BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HDC, HGDIOBJ,
-        },
-        Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES,
-        UI::{
-            Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON},
-            WindowsAndMessaging::{GetIconInfo, HICON},
-        },
-    },
-};
-use crate::utils::process_utils::get_process_path;
-use crate::uwp_apps::{get_uwp_icon, get_uwp_icon_base64};
+use windows::core::PCWSTR;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::Graphics::Gdi::DeleteObject;
+use windows::Win32::Graphics::Gdi::GetDC;
+use windows::Win32::Graphics::Gdi::GetDIBits;
+use windows::Win32::Graphics::Gdi::GetObjectW;
+use windows::Win32::Graphics::Gdi::ReleaseDC;
+use windows::Win32::Graphics::Gdi::BITMAP;
+use windows::Win32::Graphics::Gdi::BITMAPINFO;
+use windows::Win32::Graphics::Gdi::BITMAPINFOHEADER;
+use windows::Win32::Graphics::Gdi::BI_RGB;
+use windows::Win32::Graphics::Gdi::DIB_RGB_COLORS;
+use windows::Win32::Graphics::Gdi::HGDIOBJ;
+use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
+use windows::Win32::UI::Shell::SHGetFileInfoW;
+use windows::Win32::UI::Shell::SHFILEINFOW;
+use windows::Win32::UI::Shell::SHGFI_ICON;
+use windows::Win32::UI::WindowsAndMessaging::GetIconInfo;
+use windows::Win32::UI::WindowsAndMessaging::HICON;
 
 pub unsafe fn get_hicon(file_path: &str) -> Option<HICON> {
     let wide_path: Vec<u16> = OsStr::new(file_path).encode_wide().chain(Some(0)).collect();

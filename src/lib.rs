@@ -3,9 +3,12 @@ use std::os::windows::ffi::OsStrExt;
 use std::os::windows::ffi::OsStringExt;
 use base64::engine::general_purpose;
 use image::RgbaImage;
-use crate::utils::image_utils::{get_hicon, icon_to_image};
-use crate::utils::process_utils::{get_process_id_by_hwnd, get_process_path};
-use crate::uwp_apps::{get_uwp_icon, get_uwp_icon_base64};
+use crate::utils::image_utils::get_hicon;
+use crate::utils::image_utils::icon_to_image;
+use crate::utils::process_utils::get_process_id_by_hwnd;
+use crate::utils::process_utils::get_process_path;
+use crate::uwp_apps::get_uwp_icon;
+use crate::uwp_apps::get_uwp_icon_base64;
 
 mod utils {
     pub mod image_utils;

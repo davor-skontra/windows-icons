@@ -1,8 +1,11 @@
 use std::{thread, time};
 use std::ptr::addr_of_mut;
 use sysinfo::Pid;
-use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{EnumChildWindows, GetWindowThreadProcessId};
+use windows::Win32::Foundation::BOOL;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::LPARAM;
+use windows::Win32::UI::WindowsAndMessaging::EnumChildWindows;
+use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
 macro_rules! as_ptr {
     ($value:expr) => {
@@ -36,7 +39,6 @@ pub fn get_process_id_by_hwnd(hwnd: isize) -> Option<u32> {
     system.refresh_all();
     let mut pid = Pid::from_u32(pid_nr);
     let process = system.process(pid)?;
-    let process_name = process.name().to_str()?;
     if process.name() == "ApplicationFrameHost.exe" {
 
         let lookup = RealProcessLookup {

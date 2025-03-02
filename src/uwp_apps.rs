@@ -1,11 +1,13 @@
-use std::{error::Error, fs, path::Path};
-use std::ffi::OsStr;
+use std::error::Error;
+use std::fs;
+use std::path::Path;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use image::RgbaImage;
 use regex::Regex;
 use crate::IconMatcher;
-use crate::utils::image_utils::{get_icon_from_base64, read_image_to_base64};
+use crate::utils::image_utils::get_icon_from_base64;
+use crate::utils::image_utils::read_image_to_base64;
 
 pub fn get_uwp_icon(process_path: &str, icon_matcher: &IconMatcher) -> Result<RgbaImage, Box<dyn Error>> {
     let icon_path = &get_icon_file_path(process_path, icon_matcher)?;
