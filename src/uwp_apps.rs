@@ -110,7 +110,7 @@ fn reduce_to_best_scale(matching_files: &Vec<PathBuf>, scale: i16) -> Option<Vec
     let mut best_match = -1;
 
     for path_buf in removal_candidates.iter() {
-        let stem = path_buf.file_stem().unwrap().to_str().unwrap();
+        let stem = path_buf.file_stem()?.to_str()?;
         let captures = re.captures(stem);
         if captures.is_none() {
             continue
@@ -128,7 +128,7 @@ fn reduce_to_best_scale(matching_files: &Vec<PathBuf>, scale: i16) -> Option<Vec
     }
 
     let mut paths_to_remove: Vec<&PathBuf> = removal_candidates
-        .iter().filter(|p| !p.file_stem().unwrap().to_str().unwrap().contains(&format!("scale-{best_match}")))
+        .iter().filter(|p| !file_stem_contains(p,&format!("scale-{best_match}")))
         .map(|p| *p)
         .collect();
 
