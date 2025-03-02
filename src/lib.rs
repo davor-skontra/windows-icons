@@ -1,7 +1,6 @@
 use base64::Engine as _;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::ffi::OsStringExt;
-use std::{thread, time};
 use base64::engine::general_purpose;
 use image::RgbaImage;
 use crate::utils::image_utils::{get_hicon, icon_to_image};

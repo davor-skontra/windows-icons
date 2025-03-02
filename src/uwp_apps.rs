@@ -1,4 +1,5 @@
 use std::{error::Error, fs, path::Path};
+use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use image::RgbaImage;
@@ -63,18 +64,22 @@ fn extract_icon_path(manifest_content: &str) -> Option<String> {
     Some(icon_path.to_string())
 }
 
+fn file_stem_contains(path_buf: &PathBuf, text: &str) -> bool {
+    path_buf.file_stem().unwrap_or_default().to_str().unwrap_or_default().contains(text)
+}
+
 fn match_icon_path(icon_path: &str, icon_matcher: &IconMatcher) -> Option<String> {
     let path = Path::new(icon_path);
     if path.is_dir() {
         return None
     }
-    let folder_path = path.parent().unwrap();
-    let file_stem = path.file_stem().unwrap().to_str().unwrap();
+    let folder_path = path.parent()?;
+    let file_stem = path.file_stem()?.to_str()?;
     let mut matching_files: Vec<PathBuf> = folder_path.read_dir().ok()?
         .filter_map(|de| de.ok())
         .map(|de| de.path())
         .filter(|p| p.is_file())
-        .filter(|p| p.file_stem().unwrap().to_str().unwrap().contains(file_stem))
+        .filter(|p| file_stem_contains(p, file_stem))
         .collect();
     let scale = icon_matcher.display_scale;
 
@@ -86,14 +91,14 @@ fn match_icon_path(icon_path: &str, icon_matcher: &IconMatcher) -> Option<String
 
     let first = matching_files[0].as_path();
 
-    Some(first.to_str().unwrap().to_string())
+    Some(first.to_str()?.to_string())
 }
 
 fn reduce_to_best_scale(matching_files: &Vec<PathBuf>, scale: i16) -> Option<Vec<PathBuf>> {
     let re = Regex::new("scale-(.*[0-9])").unwrap();
     let removal_candidates: Vec<&PathBuf> = matching_files
         .iter()
-        .filter(|p| p.file_stem().unwrap().to_str().unwrap().contains("scale-"))
+        .filter(|p| file_stem_contains(p,"scale-"))
         .collect();
 
     if removal_candidates.is_empty() {
