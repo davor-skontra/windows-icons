@@ -37,7 +37,7 @@ pub fn get_process_id_by_hwnd(hwnd: isize) -> Option<u32> {
     system.refresh_all();
     let mut pid = Pid::from_u32(pid_nr);
     let process = system.process(pid)?;
-    let process_name = process.name().to_str().unwrap();
+    let process_name = process.name().to_str()?;
     if process.name() == "ApplicationFrameHost.exe" {
 
         let lookup = RealProcessLookup {
