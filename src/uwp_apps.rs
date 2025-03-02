@@ -1,11 +1,8 @@
 use std::{error::Error, fs, path::Path};
-use std::collections::HashSet;
 use std::io::ErrorKind;
-use std::ops::Index;
 use std::path::PathBuf;
 use image::RgbaImage;
 use regex::Regex;
-use roxmltree::Node;
 use crate::IconMatcher;
 use crate::utils::image_utils::{get_icon_from_base64, read_image_to_base64};
 
@@ -23,7 +20,6 @@ pub fn get_uwp_icon_base64(process_path: &str, icon_matcher: &IconMatcher) -> Re
 }
 
 fn get_icon_file_path(app_path: &str, icon_matcher: &IconMatcher) -> Result<String, Box<dyn Error>> {
-    println!("App path: {app_path}");
     let package_folder = Path::new(app_path).parent().unwrap();
 
     let desktop_icon_path = package_folder.join("assets").join("DesktopShortcut.ico");
