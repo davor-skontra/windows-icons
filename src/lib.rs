@@ -16,14 +16,21 @@ mod utils {
 mod uwp_apps;
 pub struct IconMatcher {
     pub display_scale: i16,
+    pub icon_type: IconType
 }
 
 impl Default for IconMatcher {
     fn default() -> Self {
         IconMatcher {
-            display_scale: 100
+            display_scale: 100,
+            icon_type: IconType::Square44x44Logo
         }
     }
+}
+
+pub enum IconType {
+    Logo,
+    Square44x44Logo
 }
 
 enum AppType {

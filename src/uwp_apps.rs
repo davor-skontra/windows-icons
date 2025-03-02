@@ -3,7 +3,7 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 use image::RgbaImage;
 use regex::Regex;
-use crate::IconMatcher;
+use crate::{IconMatcher, IconType};
 use crate::utils::image_utils::{get_icon_from_base64, read_image_to_base64};
 
 pub fn get_uwp_icon(process_path: &str, icon_matcher: &IconMatcher) -> Result<RgbaImage, Box<dyn Error>> {
@@ -29,7 +29,7 @@ fn get_icon_file_path(app_path: &str, icon_matcher: &IconMatcher) -> Result<Stri
     } else {
         let manifest_path = package_folder.join("AppxManifest.xml");
         let manifest_content = fs::read_to_string(&manifest_path)?;
-        let icon_path = extract_icon_path(&manifest_content);
+        let icon_path = extract_icon_path(&manifest_content, &icon_matcher.icon_type);
         if icon_path.is_none() {
             return Err(Box::new(std::io::Error::new(
                 ErrorKind::NotFound,
@@ -44,21 +44,33 @@ fn get_icon_file_path(app_path: &str, icon_matcher: &IconMatcher) -> Result<Stri
     }
 }
 
-fn extract_icon_path(manifest_content: &str) -> Option<String> {
+fn extract_icon_path(manifest_content: &str, icon_type: &IconType) -> Option<String> {
     let doc = roxmltree::Document::parse(manifest_content).ok()?;
 
-    let icon_path = doc
-        .descendants()
-        .find(|n| n.has_tag_name("Applications"))?
-        .descendants()
-        .find(|n|
-            n.has_tag_name("Application") &&
-                n.attributes().find(|a| a.name() == "Id" && a.value() == "App" ).is_some())?
-        .descendants()
-        .find(|n| n.has_tag_name("VisualElements"))?
-        .attributes()
-        .find(|a| a.name() == "Square44x44Logo")?
-        .value();
+    let icon_path: &str = match icon_type {
+        IconType::Logo => {
+            doc
+                .descendants()
+                .find(|n| n.has_tag_name("Properties"))?
+                .descendants()
+                .find(|n| n.has_tag_name("Logo"))?
+                .text()?
+        }
+        IconType::Square44x44Logo => {
+            doc
+                .descendants()
+                .find(|n| n.has_tag_name("Applications"))?
+                .descendants()
+                .find(|n|
+                    n.has_tag_name("Application") &&
+                        n.attributes().find(|a| a.name() == "Id" && a.value() == "App" ).is_some())?
+                .descendants()
+                .find(|n| n.has_tag_name("VisualElements"))?
+                .attributes()
+                .find(|a| a.name() == "Square44x44Logo")?
+                .value()
+        }
+    };
 
     Some(icon_path.to_string())
 }
