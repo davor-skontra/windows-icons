@@ -97,7 +97,7 @@ fn match_icon_path(icon_path: &str, icon_matcher: &IconMatcher) -> Option<String
 }
 
 fn reduce_to_best_scale(matching_files: &Vec<PathBuf>, scale: i16) -> Option<Vec<PathBuf>> {
-    let re = Regex::new("scale-(.*[0-9])").unwrap();
+    let re = Regex::new("scale-(.*[0-9])").ok()?;
     let removal_candidates: Vec<&PathBuf> = matching_files
         .iter()
         .filter(|p| file_stem_contains(p,"scale-"))
